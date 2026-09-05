@@ -347,10 +347,11 @@ def sync_to_google_calendar(events):
         )
 
         if res.status_code in [200, 201]:
-            log(f"-> Thêm mới: {summary} ({e['date']} {e['start_time']}-{e['end_time']})")
+            event_type = "[HỌC BÙ]" if e['is_makeup'] else "[LỊCH CHÍNH]"
+            log(f"-> Đã đồng bộ: {event_type} ngày {e['date']} ({e['start_time']}-{e['end_time']})")
             added_count += 1
         else:
-            log(f"Lỗi thêm sự kiện: {res.text}")
+            log("Lỗi khi thêm sự kiện lên Google Calendar.")
 
     log(f"Xong! Đã thêm mới: {added_count} buổi | Đã có sẵn: {skipped_count} buổi.")
 
