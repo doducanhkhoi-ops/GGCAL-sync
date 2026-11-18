@@ -13,6 +13,7 @@ def run_cli(*args):
     return subprocess.run(
         [sys.executable, str(SCRIPT_PATH), *args],
         cwd=str(REPO_ROOT),
+        check=False,
         capture_output=True,
         text=True,
         encoding="utf-8",

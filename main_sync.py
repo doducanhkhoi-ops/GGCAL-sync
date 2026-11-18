@@ -1,15 +1,17 @@
-import os
-import sys
-import time
-import json
-import re
 import argparse
 import datetime
+import json
+import os
+import re
+import sys
+import time
+
 import requests
 from dotenv import load_dotenv
 from selenium import webdriver
-from selenium.webdriver.common.by import By
+from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
 
 __version__ = "1.1.0"
 
@@ -69,7 +71,7 @@ def get_valid_access_token():
         log("Làm mới Token thành công!")
         return token_data['access_token']
     else:
-        raise Exception(f"Không thể làm mới token: {refresh_res.text}")
+        raise RuntimeError(f"Không thể làm mới token: {refresh_res.text}")
 
 def parse_schedule_from_html(html_source):
     from bs4 import BeautifulSoup
@@ -200,7 +202,7 @@ def fetch_multi_week_schedule(num_weeks=8):
     log("Đang khởi động trình duyệt ngầm...")
     try:
         driver = webdriver.Chrome(options=options)
-    except Exception:
+    except (WebDriverException, OSError):
         from selenium.webdriver.edge.options import Options as EdgeOptions
         edge_options = EdgeOptions()
         edge_options.add_argument('--headless')
@@ -224,7 +226,7 @@ def fetch_multi_week_schedule(num_weeks=8):
                 pass_input = inp
 
         if not user_input or not pass_input:
-            raise Exception("Không tìm thấy ô đăng nhập.")
+            raise RuntimeError("Không tìm thấy ô đăng nhập.")
 
         user_input.click()
         user_input.clear()
@@ -249,13 +251,13 @@ def fetch_multi_week_schedule(num_weeks=8):
         log("Đang chuyển đến Thời khóa biểu dạng tuần...")
         elements = driver.find_elements(By.XPATH, "//*[contains(text(), 'Thời khóa biểu dạng tuần')]")
         if not elements:
-            raise Exception("Không tìm thấy mục Thời khóa biểu.")
+            raise RuntimeError("Không tìm thấy mục Thời khóa biểu.")
 
         for el in elements:
             try:
                 driver.execute_script("arguments[0].click();", el)
                 break
-            except Exception as exc:
+            except WebDriverException as exc:
                 log(f"Bỏ qua phần tử không thể click: {exc}")
 
         time.sleep(6)
@@ -425,7 +427,7 @@ def main(argv=None):
         sync_to_google_calendar(events, dry_run=args.dry_run)
         log("=== ĐỒNG BỘ HOÀN TẤT THÀNH CÔNG ===")
         return 0
-    except Exception as ex:
+    except (RuntimeError, ValueError, OSError, requests.RequestException, WebDriverException) as ex:
         log(f"LỖI: {ex}")
         return 1
 

@@ -50,9 +50,11 @@ class TestGetValidAccessToken(unittest.TestCase):
     def test_raises_when_token_file_missing(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             missing_token = os.path.join(tmpdir, "token.json")
-            with patch.object(main_sync, "TOKEN_FILE", missing_token):
-                with self.assertRaises(FileNotFoundError):
-                    main_sync.get_valid_access_token()
+            with (
+                patch.object(main_sync, "TOKEN_FILE", missing_token),
+                self.assertRaises(FileNotFoundError),
+            ):
+                main_sync.get_valid_access_token()
 
     def test_returns_existing_valid_token(self):
         with tempfile.TemporaryDirectory() as tmpdir:
