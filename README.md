@@ -1,91 +1,142 @@
-# FTU HCMC Schedule to Google Calendar
+<div align="center">
 
-Công cụ tự động cào thời khóa biểu từ cổng đào tạo FTU Cơ sở 2 và đồng bộ trực tiếp vào Google Calendar, chạy tự động qua GitHub Actions hoặc chạy thủ công trên máy.
+# GGCAL-sync
 
-## Tính năng
+**Headless timetable scraper and Google Calendar sync for FTU HCMC.**
 
-- Tự động đăng nhập cổng QLĐT bằng Selenium và lấy thời khóa biểu tuần.
-- Quét liên tục 6 tuần tiếp theo để cập nhật lịch học mới.
-- Tự phát hiện ca học bù (dựa trên class `tkb-daybu` hoặc tên môn) để gắn tiền tố `[HỌC BÙ]` và đổi màu sang tím.
-- Kiểm tra trùng lặp trước khi thêm, tránh tạo nhiều sự kiện cùng giờ.
-- Hẹn sẵn 2 mốc thông báo trước giờ học: 120 phút và 30 phút.
-- Tích hợp GitHub Actions chạy định kỳ 2 lần mỗi ngày (07:00 và 18:00 giờ Việt Nam).
+[![CI](https://github.com/doducanhkhoi-ops/GGCAL-sync/actions/workflows/ci.yml/badge.svg)](https://github.com/doducanhkhoi-ops/GGCAL-sync/actions/workflows/ci.yml)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/github/license/doducanhkhoi-ops/GGCAL-sync)](./LICENSE)
+[![Stars](https://img.shields.io/github/stars/doducanhkhoi-ops/GGCAL-sync?style=social)](https://github.com/doducanhkhoi-ops/GGCAL-sync)
 
-## Cấu trúc thư mục
+</div>
 
-```text
-├── .github/workflows/
-│   └── sync_calendar.yml    # Workflow chạy định kỳ trên GitHub Actions
-├── main_sync.py             # Script chính quét thời khóa biểu và đẩy vào lịch
-├── auth.py                  # Script xác thực tài khoản Google lần đầu
-├── requirements.txt         # Danh sách thư viện cần cài đặt
-├── .env.example             # File mẫu chứa thông tin tài khoản sinh viên
-└── README.md
-```
+---
 
-## Yêu cầu môi trường
+Pulls weekly class schedules from `qldt.hcmc.ftu.edu.vn` and pushes them to Google Calendar with automatic OAuth token refresh, duplicate prevention, and makeup-class tagging.
 
-- Python 3.10 trở lên
-- Google Chrome và ChromeDriver (Selenium 4 tự động quản lý driver)
+---
 
-## Hướng dẫn cài đặt
+## Why GGCAL-sync?
 
-### 1. Cài đặt thư viện
+- **6-week lookahead**: Scans 6 upcoming weeks by default (`--weeks N` to override) in a single headless session.
+- **2x daily automation**: GitHub Actions cron runs at `07:00` and `18:00 ICT` (`00:00` / `11:00 UTC`) with zero local uptime required.
+- **Zero duplicates**: Queries `calendars/primary/events` per time window before inserting, skipping already-synced classes.
+- **Makeup detection**: Flags `tkb-daybu` cells and makeup keywords with `[HỌC BÙ]` and Google Calendar `colorId: 3`.
+- **Dual reminders**: Attaches `120m` and `30m` popup alerts to every synced session in `Asia/Ho_Chi_Minh`.
+- **Browser fallback**: Launches headless Chrome via Selenium 4 and falls back to Edge if Chrome is unavailable.
+
+---
+
+## Feature Overview
+
+| Component | Behavior |
+| --- | --- |
+| **Scraper** | Authenticates on FTU HCMC portal and paginates weekly timetable views |
+| **HTML Parser** | Resolves `rowspan`/`colspan` grid cells into structured JSON events |
+| **OAuth Manager** | Validates `token.json` and refreshes expired access tokens via `oauth2.googleapis.com` |
+| **Calendar Sync** | Deduplicates by `[start_iso, end_iso]` window and writes events via Calendar API v3 |
+| **CLI** | Supports `--weeks`, `--dry-run`, `--parse-html`, and `--version` |
+
+---
+
+## Quick Start
+
+### 1. Install
 
 ```bash
+git clone https://github.com/doducanhkhoi-ops/GGCAL-sync.git
+cd GGCAL-sync
 pip install -r requirements.txt
 ```
 
-### 2. Cấu hình Google Cloud API
+### 2. Configure credentials
 
-1. Truy cập [Google Cloud Console](https://console.cloud.google.com/) và tạo một dự án mới (ví dụ `FTU-Calendar`).
-2. Vào **APIs & Services** > **Library**, tìm **Google Calendar API** và bấm **Enable**.
-3. Vào **Google Auth Platform** > **Audience** (hoặc **OAuth consent screen**):
-   - Chọn loại ứng dụng: **External**.
-   - Vào **Branding**, điền tên app, email liên hệ, và thêm domain `github.com` vào mục **Authorized domains**.
-   - Chuyển trạng thái **Publishing status** sang **In production** (bấm **Publish app**). Bước này bắt buộc để refresh token không bị Google thu hồi sau 7 ngày.
-4. Vào **Clients** (hoặc **Credentials**):
-   - Bấm **Create Credentials** > chọn **OAuth client ID**.
-   - Application type: chọn **Desktop app**.
-   - Tải file JSON về, đổi tên thành `credentials.json` và lưu vào thư mục gốc của dự án.
+Create `.env` from the template:
 
-### 3. Cấu hình tài khoản sinh viên và lấy token
+```bash
+cp .env.example .env
+```
 
-1. Tạo file `.env` từ file mẫu:
-   ```bash
-   cp .env.example .env
-   ```
-2. Mở file `.env` và nhập thông tin:
-   ```env
-   STUDENT_ID=ma_sinh_vien
-   STUDENT_PASS=mat_khau
-   ```
-3. Chạy file xác thực Google:
-   ```bash
-   python auth.py
-   ```
-   Trình duyệt sẽ mở ra trang đăng nhập Google. Chọn tài khoản của bạn, bấm Cho phép để cấp quyền truy cập Calendar. Khi hoàn tất, file `token.json` sẽ được tạo trong thư mục dự án.
+```env
+STUDENT_ID=your_student_id
+STUDENT_PASS=your_password
+```
 
-4. Chạy thử đồng bộ lịch trên máy:
-   ```bash
-   python main_sync.py
-   ```
+Place your Google OAuth Desktop app client file as `credentials.json` and `token.json` in the repository root.
 
-## Thiết lập tự động qua GitHub Actions
+> [!NOTE]
+> Set the OAuth consent screen publishing status to **In production** in Google Cloud Console so refresh tokens do not expire after 7 days.
 
-Để script tự chạy mà không cần bật máy tính, bạn thiết lập trên kho mã nguồn GitHub:
+### 3. Run
 
-1. Vào **Settings** > **Secrets and variables** > **Actions** trong repository.
-2. Thêm 4 secret tương ứng:
-   - `STUDENT_ID`: Mã sinh viên.
-   - `STUDENT_PASS`: Mật khẩu tài khoản sinh viên.
-   - `CREDENTIALS_JSON`: Toàn bộ nội dung file `credentials.json`.
-   - `TOKEN_JSON`: Toàn bộ nội dung file `token.json`.
-3. Chuyển sang tab **Actions**, chọn workflow **Auto Sync FTU Schedule to Google Calendar** và bấm **Run workflow** để kiểm tra lần chạy đầu tiên.
+```bash
+# Sync next 6 weeks (default)
+python main_sync.py
 
-Từ các ngày tiếp theo, hệ thống sẽ tự động chạy vào lúc 07:00 sáng và 18:00 chiều mỗi ngày.
+# Dry run without writing to Google Calendar
+python main_sync.py --weeks 4 --dry-run
 
-## Lưu ý
+# Parse a saved HTML timetable to JSON
+python main_sync.py --parse-html tests/fixtures/sample_timetable.html
+```
 
-- Không commit các file chứa thông tin nhạy cảm (`.env`, `credentials.json`, `token.json`) lên kho lưu trữ công khai. File `.gitignore` đã có sẵn các mẫu để loại trừ những file này.
-- Nếu bạn đổi mật khẩu cổng trường hoặc mật khẩu Google, hãy cập nhật lại các secret tương ứng trên GitHub.
+Output (`--parse-html`):
+
+```json
+[
+  {
+    "course": "Kinh tế lượng",
+    "group": "K59.1",
+    "room": "A201",
+    "teacher": "Nguyễn Văn A",
+    "is_makeup": false,
+    "date": "2026-11-18",
+    "start_time": "07:00",
+    "end_time": "09:30",
+    "day_header": "Thứ 2 18/11"
+  }
+]
+```
+
+---
+
+## CLI Reference
+
+| Flag | Default | Description |
+| --- | --- | --- |
+| `--weeks N` | `6` | Number of upcoming weeks to scan (`>= 1`) |
+| `--dry-run` | `false` | Parse and log events without calling Google Calendar API |
+| `--parse-html PATH` | — | Parse a local HTML file and print JSON events to stdout |
+| `--version` | — | Print CLI version and exit |
+
+---
+
+## GitHub Actions
+
+Add 4 repository secrets under **Settings → Secrets and variables → Actions**:
+
+| Secret | Value |
+| --- | --- |
+| `STUDENT_ID` | FTU student ID |
+| `STUDENT_PASS` | FTU portal password |
+| `CREDENTIALS_JSON` | Full contents of `credentials.json` |
+| `TOKEN_JSON` | Full contents of `token.json` |
+
+Workflow [`.github/workflows/sync_calendar.yml`](.github/workflows/sync_calendar.yml) runs automatically at `00:00` and `11:00 UTC` daily and can be triggered manually via `workflow_dispatch`.
+
+---
+
+## Testing
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+Tests cover HTML `rowspan`/`colspan` grid parsing, makeup-class detection, OAuth token refresh persistence, Calendar API deduplication, `--dry-run` isolation, and CLI exit codes.
+
+---
+
+## License
+
+[Apache License 2.0](./LICENSE)

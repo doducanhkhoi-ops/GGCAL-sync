@@ -3,12 +3,15 @@ import sys
 import time
 import json
 import re
+import argparse
 import datetime
 import requests
 from dotenv import load_dotenv
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
+
+__version__ = "1.1.0"
 
 try:
     sys.stdout.reconfigure(encoding='utf-8')
@@ -274,7 +277,18 @@ def fetch_multi_week_schedule(num_weeks=8):
     finally:
         driver.quit()
 
-def sync_to_google_calendar(events):
+def sync_to_google_calendar(events, dry_run=False):
+    if dry_run:
+        log(f"[DRY RUN] Bỏ qua gọi Google Calendar API cho {len(events)} buổi học.")
+        valid_events = [
+            e for e in events
+            if e.get('date') and e.get('start_time') and e.get('end_time')
+        ]
+        for e in valid_events:
+            prefix = "[HỌC BÙ]" if e['is_makeup'] else "[LỊCH CHÍNH]"
+            log(f"-> [DRY RUN] {prefix} {e['course']} | {e['date']} ({e['start_time']}-{e['end_time']})")
+        return {'added': 0, 'skipped': len(valid_events), 'total': len(valid_events)}
+
     access_token = get_valid_access_token()
     headers = {
         'Authorization': f'Bearer {access_token}',
@@ -354,16 +368,59 @@ def sync_to_google_calendar(events):
             log("Lỗi khi thêm sự kiện lên Google Calendar.")
 
     log(f"Xong! Đã thêm mới: {added_count} buổi | Đã có sẵn: {skipped_count} buổi.")
+    return {'added': added_count, 'skipped': skipped_count, 'total': len(events)}
 
-def main():
+def build_parser():
+    parser = argparse.ArgumentParser(
+        prog="main_sync.py",
+        description="Sync FTU HCMC weekly timetable to Google Calendar."
+    )
+    parser.add_argument(
+        "--weeks",
+        type=int,
+        default=6,
+        help="Number of upcoming weeks to scan (default: 6)."
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Parse schedule without writing events to Google Calendar."
+    )
+    parser.add_argument(
+        "--parse-html",
+        metavar="PATH",
+        help="Parse a local HTML timetable file and print JSON events to stdout."
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {__version__}"
+    )
+    return parser
+
+def main(argv=None):
+    parser = build_parser()
+    args = parser.parse_args(argv)
+
     try:
+        if args.parse_html:
+            with open(args.parse_html, 'r', encoding='utf-8') as f:
+                html_source = f.read()
+            events = parse_schedule_from_html(html_source)
+            print(json.dumps(events, ensure_ascii=False, indent=2))
+            return 0
+
+        if args.weeks < 1:
+            raise ValueError("--weeks must be >= 1")
+
         log("=== BẮT ĐẦU CHU TRÌNH TỰ ĐỘNG ĐỒNG BỘ LỊCH ===")
-        # Quét trước 6 tuần tới (có thể tăng thêm trong cấu hình)
-        events = fetch_multi_week_schedule(num_weeks=6)
-        sync_to_google_calendar(events)
+        events = fetch_multi_week_schedule(num_weeks=args.weeks)
+        sync_to_google_calendar(events, dry_run=args.dry_run)
         log("=== ĐỒNG BỘ HOÀN TẤT THÀNH CÔNG ===")
+        return 0
     except Exception as ex:
         log(f"LỖI: {ex}")
+        return 1
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
