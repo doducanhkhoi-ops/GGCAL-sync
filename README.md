@@ -5,9 +5,10 @@
 **Headless timetable scraper and Google Calendar sync for FTU HCMC.**
 
 [![CI](https://github.com/doducanhkhoi-ops/GGCAL-sync/actions/workflows/ci.yml/badge.svg)](https://github.com/doducanhkhoi-ops/GGCAL-sync/actions/workflows/ci.yml)
+[![Security Audit](https://github.com/doducanhkhoi-ops/GGCAL-sync/actions/workflows/security.yml/badge.svg)](https://github.com/doducanhkhoi-ops/GGCAL-sync/actions/workflows/security.yml)
+[![CodeQL](https://github.com/doducanhkhoi-ops/GGCAL-sync/actions/workflows/codeql.yml/badge.svg)](https://github.com/doducanhkhoi-ops/GGCAL-sync/actions/workflows/codeql.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/github/license/doducanhkhoi-ops/GGCAL-sync)](./LICENSE)
-[![Stars](https://img.shields.io/github/stars/doducanhkhoi-ops/GGCAL-sync?style=social)](https://github.com/doducanhkhoi-ops/GGCAL-sync)
 
 </div>
 
@@ -127,13 +128,20 @@ Workflow [`.github/workflows/sync_calendar.yml`](.github/workflows/sync_calendar
 
 ---
 
-## Testing
+## Testing & Security
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-Tests cover HTML `rowspan`/`colspan` grid parsing, makeup-class detection, OAuth token refresh persistence, Calendar API deduplication, `--dry-run` isolation, and CLI exit codes.
+Automated verification on every push to `main`:
+
+| Check | Tool | Scope |
+| --- | --- | --- |
+| **Unit & CLI Tests** | `pytest` (`3.10`, `3.11`, `3.12`) | HTML `rowspan`/`colspan` parsing, OAuth refresh, deduplication, CLI flags |
+| **SAST** | GitHub CodeQL | Static vulnerability analysis across Python source |
+| **Security Lint** | `bandit` + `ruff` | HTTP timeouts, exception handling, code hygiene |
+| **CVE Audit** | `pip-audit` + Dependabot | Known vulnerabilities in `requirements.txt` & GitHub Actions |
 
 ---
 

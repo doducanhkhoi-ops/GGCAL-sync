@@ -1,0 +1,39 @@
+name: Security Audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 3 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install security & lint tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt ruff bandit pip-audit
+
+      - name: Lint with Ruff
+        run: ruff check main_sync.py tests/
+
+      - name: Static security scan with Bandit
+        run: bandit -r main_sync.py -ll
+
+      - name: Dependency CVE audit with pip-audit
+        run: pip-audit -r requirements.txt

@@ -16,7 +16,7 @@ __version__ = "1.1.0"
 try:
     sys.stdout.reconfigure(encoding='utf-8')
     sys.stderr.reconfigure(encoding='utf-8')
-except Exception:
+except (AttributeError, OSError):
     pass
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -38,7 +38,8 @@ def get_valid_access_token():
     # Test token
     test_res = requests.get(
         'https://www.googleapis.com/calendar/v3/calendars/primary',
-        headers={'Authorization': f"Bearer {token_data['access_token']}"}
+        headers={'Authorization': f"Bearer {token_data['access_token']}"},
+        timeout=30,
     )
     if test_res.status_code == 200:
         return token_data['access_token']
@@ -49,12 +50,16 @@ def get_valid_access_token():
         creds = json.load(f)
     info = creds.get('installed') or creds.get('web')
     
-    refresh_res = requests.post('https://oauth2.googleapis.com/token', data={
-        'client_id': info['client_id'],
-        'client_secret': info['client_secret'],
-        'refresh_token': token_data['refresh_token'],
-        'grant_type': 'refresh_token'
-    })
+    refresh_res = requests.post(
+        'https://oauth2.googleapis.com/token',
+        data={
+            'client_id': info['client_id'],
+            'client_secret': info['client_secret'],
+            'refresh_token': token_data['refresh_token'],
+            'grant_type': 'refresh_token'
+        },
+        timeout=30,
+    )
     
     if refresh_res.status_code == 200:
         new_token = refresh_res.json()
@@ -250,8 +255,8 @@ def fetch_multi_week_schedule(num_weeks=8):
             try:
                 driver.execute_script("arguments[0].click();", el)
                 break
-            except Exception:
-                pass
+            except Exception as exc:
+                log(f"Bỏ qua phần tử không thể click: {exc}")
 
         time.sleep(6)
 
@@ -315,7 +320,8 @@ def sync_to_google_calendar(events, dry_run=False):
                 'timeMin': start_iso,
                 'timeMax': end_iso,
                 'singleEvents': True
-            }
+            },
+            timeout=30,
         )
 
         already_exists = False
@@ -357,7 +363,8 @@ def sync_to_google_calendar(events, dry_run=False):
         res = requests.post(
             'https://www.googleapis.com/calendar/v3/calendars/primary/events',
             headers=headers,
-            json=event_body
+            json=event_body,
+            timeout=30,
         )
 
         if res.status_code in [200, 201]:
