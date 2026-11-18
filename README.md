@@ -4,9 +4,9 @@
 
 **Headless timetable scraper and Google Calendar sync for FTU HCMC.**
 
-[![CI](https://github.com/doducanhkhoi-ops/GGCAL-sync/actions/workflows/ci.yml/badge.svg)](https://github.com/doducanhkhoi-ops/GGCAL-sync/actions/workflows/ci.yml)
-[![Security Audit](https://github.com/doducanhkhoi-ops/GGCAL-sync/actions/workflows/security.yml/badge.svg)](https://github.com/doducanhkhoi-ops/GGCAL-sync/actions/workflows/security.yml)
-[![CodeQL](https://github.com/doducanhkhoi-ops/GGCAL-sync/actions/workflows/codeql.yml/badge.svg)](https://github.com/doducanhkhoi-ops/GGCAL-sync/actions/workflows/codeql.yml)
+[![CI](https://github.com/doducanhkhoi-ops/GGCAL-sync/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/doducanhkhoi-ops/GGCAL-sync/actions/workflows/ci.yml)
+[![Security Audit](https://github.com/doducanhkhoi-ops/GGCAL-sync/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/doducanhkhoi-ops/GGCAL-sync/actions/workflows/security.yml)
+[![CodeQL](https://github.com/doducanhkhoi-ops/GGCAL-sync/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/doducanhkhoi-ops/GGCAL-sync/actions/workflows/codeql.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/github/license/doducanhkhoi-ops/GGCAL-sync)](./LICENSE)
 
