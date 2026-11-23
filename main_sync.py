@@ -9,9 +9,10 @@ import time
 import requests
 from dotenv import load_dotenv
 from selenium import webdriver
-from selenium.common.exceptions import WebDriverException
+from selenium.common.exceptions import TimeoutException, WebDriverException
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
 
 __version__ = "1.1.0"
 
@@ -214,7 +215,15 @@ def fetch_multi_week_schedule(num_weeks=8):
     try:
         log("Đang truy cập Cổng đào tạo FTU...")
         driver.get('https://qldt.hcmc.ftu.edu.vn/#/home')
-        time.sleep(4)
+        try:
+            WebDriverWait(driver, 20).until(
+                lambda d: any(
+                    inp.get_attribute('type') == 'password'
+                    for inp in d.find_elements(By.TAG_NAME, 'input')
+                )
+            )
+        except TimeoutException:
+            pass
 
         log("Đang tự động đăng nhập...")
         inputs = driver.find_elements(By.TAG_NAME, 'input')
@@ -246,21 +255,36 @@ def fetch_multi_week_schedule(num_weeks=8):
                 driver.execute_script("arguments[0].click();", btn)
                 break
 
-        time.sleep(6)
+        try:
+            WebDriverWait(driver, 25).until(
+                lambda d: (
+                    'mode=userinfo' in d.current_url
+                    or len(d.find_elements(By.XPATH, "//*[contains(text(), 'Thời khóa biểu dạng tuần')]")) > 0
+                )
+            )
+        except TimeoutException:
+            log("Cảnh báo: Chờ đăng nhập quá 25s, thử chuyển trực tiếp sang trang Thời khóa biểu...")
 
         log("Đang chuyển đến Thời khóa biểu dạng tuần...")
         elements = driver.find_elements(By.XPATH, "//*[contains(text(), 'Thời khóa biểu dạng tuần')]")
-        if not elements:
-            raise RuntimeError("Không tìm thấy mục Thời khóa biểu.")
-
+        clicked = False
         for el in elements:
             try:
                 driver.execute_script("arguments[0].click();", el)
+                clicked = True
                 break
             except WebDriverException as exc:
                 log(f"Bỏ qua phần tử không thể click: {exc}")
 
-        time.sleep(6)
+        if not clicked:
+            driver.get('https://qldt.hcmc.ftu.edu.vn/#/tkb-tuan')
+
+        try:
+            WebDriverWait(driver, 20).until(
+                lambda d: 'Thứ 2' in d.page_source and 'Tiết 1' in d.page_source
+            )
+        except TimeoutException:
+            raise RuntimeError(f"Không tải được bảng Thời khóa biểu (URL hiện tại: {driver.current_url}).")
 
         log(f"Bắt đầu quét thời khóa biểu {num_weeks} tuần tới...")
         for w in range(num_weeks):
